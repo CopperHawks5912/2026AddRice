@@ -82,8 +82,8 @@ public class SwerveSubsystem extends SubsystemBase {
    * @param directory Directory of swerve drive config files.
    */
   public SwerveSubsystem(File directory) {
-    boolean blueAlliance = false;
-    Pose2d startingPose = blueAlliance 
+    // init default starting pose (this will be overridden by PathPlanner auto)
+    Pose2d startingPose = !Utils.isRedAlliance() 
       ? new Pose2d(new Translation2d(Meter.of(1), Meter.of(4)), Rotation2d.fromDegrees(0))
       : new Pose2d(new Translation2d(Meter.of(16), Meter.of(4)), Rotation2d.fromDegrees(180));
     
@@ -92,9 +92,6 @@ public class SwerveSubsystem extends SubsystemBase {
     try {
       // configure swerve drive from JSON files
       swerveDrive = new SwerveParser(directory).createSwerveDrive(SwerveConstants.MaxSpeed, startingPose);
-
-      // Alternative method if you don't want to supply the conversion factor via JSON files.
-      // swerveDrive = new SwerveParser(directory).createSwerveDrive(maximumSpeed, angleConversionFactor, driveConversionFactor);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
