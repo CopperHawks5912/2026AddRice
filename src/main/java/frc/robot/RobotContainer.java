@@ -4,6 +4,7 @@
 
 package frc.robot;
 
+import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 
 import edu.wpi.first.wpilibj.DriverStation;
@@ -11,17 +12,17 @@ import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.WaitCommand;
-import edu.wpi.first.wpilibj2.command.button.CommandGenericHID;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
-import frc.robot.commands.swerve.ReduceSwerveTranslationCommand;
-import frc.robot.Constants.ArmConstants;
+import frc.robot.subsystems.climber.ClimberSubsystem;
+import frc.robot.subsystems.drive.SwerveSubsystem;
+import frc.robot.subsystems.feedback.FeedbackSubsystem;
+import frc.robot.subsystems.intake.IntakeSubsystem;
+import frc.robot.subsystems.shooter.ShooterSubsystem;
 import frc.robot.Constants.SwerveConstants;
-import frc.robot.subsystems.swervedrive.SwerveSubsystem;
-
 import swervelib.SwerveInputStream;
 
 import java.io.File;
@@ -34,27 +35,30 @@ import java.io.File;
 public class RobotContainer {
   // Initialize our controllers
   final CommandXboxController driverXbox = new CommandXboxController(0);
-  // final CommandGenericHID operatorController1 = new CommandGenericHID(1);
-  // final CommandGenericHID operatorController2 = new CommandGenericHID(2);
    
-  // The robot's subsystems and commands are defined here...
-  private final SwerveSubsystem driveSubsystem = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/5912_2025"));
-    
-  private final SendableChooser<Integer> m_autoDelayChooser = new SendableChooser<>();
-  private final SendableChooser<String> m_autoPathChooser = new SendableChooser<>();
-  private Integer m_selectedDelayAuto;
-  private String m_selectedPathAuto;
+  // The robot's subsystems are defined here...
+  private final SwerveSubsystem driveSubsystem = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(), "swerve/5912_2026"));
+  private final ClimberSubsystem climberSubsystem = new ClimberSubsystem();
+  private final FeedbackSubsystem feedbackSubsystem = new FeedbackSubsystem(driverXbox);
+  private final IntakeSubsystem intakeSubsystem = new IntakeSubsystem();
+  private final ShooterSubsystem shooterSubsystem = new ShooterSubsystem();
+
+  // Auto choosers
+  private SendableChooser<Command> autoCommandChooser = new SendableChooser<>();
+  private SendableChooser<Command> delayCommandChooser = new SendableChooser<>();
 
   /**
    * Converts driver input into a field-relative ChassisSpeeds that is controlled by angular velocity.
    */
-  SwerveInputStream driveAngularVelocity = SwerveInputStream.of(driveSubsystem.getSwerveDrive(),
-                                                                () -> driverXbox.getLeftY() * -1,
-                                                                () -> driverXbox.getLeftX() * -1)
-                                                            .withControllerRotationAxis(() -> driverXbox.getRightX() * -1)
-                                                            .deadband(SwerveConstants.Deadband)
-                                                            .scaleTranslation(SwerveConstants.DefaultScaleTranslation)
-                                                            .allianceRelativeControl(true);  
+  SwerveInputStream driveAngularVelocity = SwerveInputStream.of(
+      driveSubsystem.getSwerveDrive(),
+      () -> driverXbox.getLeftY() * -1,
+      () -> driverXbox.getLeftX() * -1
+    )
+    .withControllerRotationAxis(() -> driverXbox.getRightX() * -1)
+    .deadband(SwerveConstants.Deadband)
+    .scaleTranslation(SwerveConstants.DefaultScaleTranslation)
+    .allianceRelativeControl(true);  
 
   Command driveFieldOrientedAnglularVelocity = driveSubsystem.driveFieldOriented(driveAngularVelocity);
 
@@ -100,21 +104,31 @@ public class RobotContainer {
    * which pulls in all autos defined in the PathPlanner deploy folder.
    */
   private void configureAutos() {
-    m_autoDelayChooser.setDefaultOption( "0 Sec Delay", 0);
-    m_autoDelayChooser.addOption( "1 Sec Delay", 1);
-    m_autoDelayChooser.addOption( "2 Sec Delay", 2);
-    m_autoDelayChooser.addOption( "3 Sec Delay", 3);
-    m_autoDelayChooser.addOption( "5 Sec Delay", 5);
+    // Build the auto chooser and add it to the dashboard
+    // This will use Commands.none() as the default option.
+    autoCommandChooser = AutoBuilder.buildAutoChooserWithOptionsModifier(
+      (stream) -> DriverStation.isTest()
+        ? stream // in test, show all autos
+        : stream.filter(auto -> !auto.getName().toLowerCase().startsWith("test")) // in comp, filter out test autos
+    );
     
-    m_autoPathChooser.setDefaultOption( "Center10R", "Center10R");
-    m_autoPathChooser.addOption( "Center10R-StationRobotRight", "Center10RToStationR");
-    m_autoPathChooser.addOption( "Center10R-StationRobotLeft", "Center10RToStationL");
-    //m_autoPathChooser.addOption( "Center10R-StationRobotRight-Reef", "Center10RToStationRTo6");
-    //m_autoPathChooser.addOption( "Center10R-StationRobotLeft-Reef", "Center10RToStationLTo8");
-    m_autoPathChooser.addOption( "OffTheLine", "OffTheLine");
+    // Add auto chooser to dashboard
+    SmartDashboard.putData("Auto Command", autoCommandChooser);
+
+    // Configure the available auto delay options
+    delayCommandChooser.setDefaultOption("No delay", Commands.none());
+    delayCommandChooser.addOption("1.0 second", Commands.waitSeconds(1.0));
+    delayCommandChooser.addOption("1.5 seconds", Commands.waitSeconds(1.5));
+    delayCommandChooser.addOption("2.0 seconds", Commands.waitSeconds(2.0));
+    delayCommandChooser.addOption("2.5 seconds", Commands.waitSeconds(2.5));
+    delayCommandChooser.addOption("3.0 seconds", Commands.waitSeconds(3.0));
+    delayCommandChooser.addOption("3.5 seconds", Commands.waitSeconds(3.5));
+    delayCommandChooser.addOption("4.0 seconds", Commands.waitSeconds(4.0));
+    delayCommandChooser.addOption("4.5 seconds", Commands.waitSeconds(4.5));
+    delayCommandChooser.addOption("5.0 seconds", Commands.waitSeconds(5.0));
     
-    SmartDashboard.putData("Auto-Delay:", m_autoDelayChooser );
-    SmartDashboard.putData("Auto-Drive:", m_autoPathChooser ); 
+    // Add delay chooser to dashboard
+    SmartDashboard.putData("Auto Delay", delayCommandChooser);
   }
 
   /**
@@ -125,14 +139,27 @@ public class RobotContainer {
    * controllers or {@link edu.wpi.first.wpilibj2.command.button.CommandJoystick Flight joysticks}.
    */
   private void configureBindings() {   
-    // Xbox controller mappings
+    // reset gyro and odometry
     driverXbox.start().onTrue((Commands.runOnce(driveSubsystem::resetGyro)));
+
+    // climb up while holding Y
+    driverXbox.y().whileTrue(climberSubsystem.upCommand());
+
+    // climb down while holding B
+    driverXbox.b().whileTrue(climberSubsystem.downCommand());
+
+    // shoot fuel into hub based on given vision distance while holding X
+    driverXbox.x().whileTrue(shooterSubsystem.shootCommand(() -> -1));
+
+    // intake fuel from the ground while holding A
+    driverXbox.a().whileTrue(intakeSubsystem.intakeFuelCommand());
+
+    // not used
     driverXbox.back().onTrue(Commands.none());
-    driverXbox.b().onTrue(Commands.none());
-    driverXbox.x().onTrue(Commands.none());
     driverXbox.rightBumper().onTrue(Commands.none());
     driverXbox.leftBumper().onTrue(Commands.none());
-    driverXbox.rightTrigger().whileTrue( new ReduceSwerveTranslationCommand( driveSubsystem, driveAngularVelocity ) );
+    driverXbox.rightTrigger().onTrue(Commands.none());
+    driverXbox.leftTrigger().onTrue(Commands.none());
   }
 
   /**
@@ -141,46 +168,10 @@ public class RobotContainer {
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
-    Command delayCommand = null;
-       
-    double armPostionAuto = ArmConstants.Lvl2Position;
-
-    m_selectedDelayAuto = m_autoDelayChooser.getSelected();
-    m_selectedPathAuto = m_autoPathChooser.getSelected();
-    
-    Command pathCommand;
-    
-    if( m_selectedDelayAuto > 0 )
-      delayCommand = new WaitCommand(m_selectedDelayAuto); 
-    
-    switch( m_selectedPathAuto )
-    {  
-      case "Center10R":
-        pathCommand = driveSubsystem.getAutonomousCommand("Center10R"); ;
-        break;
-      case "Center10RToStationR":
-        pathCommand = driveSubsystem.getAutonomousCommand("Center10RToStationR"); ;
-        break;
-      case "Center10RToStationL":
-        pathCommand = driveSubsystem.getAutonomousCommand("Center10RToStationL"); ;
-        break;
-      case "Center10RToStationRTo6":
-        pathCommand = driveSubsystem.getAutonomousCommand("Center10RToStationRTo6"); ;
-        break;
-      case "Center10RToStationLTo8":
-        pathCommand = driveSubsystem.getAutonomousCommand("Center10RToStationLTo8"); ;
-        break;
-      default:
-        pathCommand = driveSubsystem.getAutonomousCommand("OffTheLine"); ;
-        break;    
-    }
-   
-    if( delayCommand != null && pathCommand != null)
-       return delayCommand.andThen(pathCommand);
-     else if( pathCommand != null )
-       return pathCommand;
-    else 
-       return Commands.none();
+    return Commands.sequence(
+      delayCommandChooser.getSelected(), // run the selected delay command
+      autoCommandChooser.getSelected()   // then run the selected auto command
+    );
   }
 
   /**
@@ -197,6 +188,6 @@ public class RobotContainer {
    * @param gameData the game-specific message from the DriverStation
    */
   public void scheduleScoringShiftCommand(char inactiveAlliance) {
-    // CommandScheduler.getInstance().schedule(feedbackSubsystem.scoringShiftCommand(inactiveAlliance));
+    CommandScheduler.getInstance().schedule(feedbackSubsystem.scoringShiftCommand(inactiveAlliance));
   }
 }

@@ -72,6 +72,9 @@ public class Robot extends TimedRobot {
     disabledTimer.start();
   }
 
+  /**
+   * This function is called periodically while the robot is disabled.
+   */
   @Override
   public void disabledPeriodic() {
     if (disabledTimer.hasElapsed(SwerveConstants.WheelLockTime)) {
@@ -104,6 +107,9 @@ public class Robot extends TimedRobot {
   @Override
   public void autonomousPeriodic() {}
 
+  /**
+   * This function is called periodically during teleop.
+   */
   @Override
   public void teleopInit() {
     // This makes sure that the autonomous stops running when
@@ -139,6 +145,9 @@ public class Robot extends TimedRobot {
     }
   }
 
+  /**
+   * This function is called once each time the robot enters test mode.
+   */
   @Override
   public void testInit() {
     // Cancels all running commands at the start of test mode.

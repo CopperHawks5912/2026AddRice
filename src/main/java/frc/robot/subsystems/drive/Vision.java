@@ -1,4 +1,4 @@
-package frc.robot.subsystems.swervedrive;
+package frc.robot.subsystems.drive;
 
 import static edu.wpi.first.units.Units.Microseconds;
 import static edu.wpi.first.units.Units.Milliseconds;
@@ -53,20 +53,19 @@ public class Vision
   /**
    * April Tag Field Layout of the year.
    */
-  public static final AprilTagFieldLayout fieldLayout                     = AprilTagFieldLayout.loadField(
-      AprilTagFields.k2025ReefscapeWelded);
+  public static final AprilTagFieldLayout fieldLayout = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded);
    /**
    * Photon Vision Simulation
    */
-  public              VisionSystemSim     visionSim;
+  public VisionSystemSim     visionSim;
    /**
    * Current pose from the pose estimator using wheel odometry.
    */
-  private             Supplier<Pose2d>    currentPose;
+  private Supplier<Pose2d>    currentPose;
   /**
    * Field from {@link swervelib.SwerveDrive#field}
    */
-  private             Field2d             field2d;
+  private Field2d             field2d;
 
 
   /**
@@ -278,8 +277,7 @@ public class Vision
   /**
    * Camera Enum to select each camera
    */
-  enum Cameras
-  {
+  enum Cameras {
     /**
      * Left Camera
      */
@@ -304,31 +302,31 @@ public class Vision
     /**
      * Latency alert to use when high latency is detected.
      */
-    public final  Alert                        latencyAlert;
+    public final  Alert latencyAlert;
     /**
      * Camera instance for comms.
      */
-    public final  PhotonCamera                 camera;
+    public final  PhotonCamera camera;
     /**
      * Pose estimator for camera.
      */
-    public final  PhotonPoseEstimator          poseEstimator;
+    public final  PhotonPoseEstimator poseEstimator;
     /**
      * Standard Deviation for single tag readings for pose estimation.
      */
-    private final Matrix<N3, N1>               singleTagStdDevs;
+    private final Matrix<N3, N1> singleTagStdDevs;
     /**
      * Standard deviation for multi-tag readings for pose estimation.
      */
-    private final Matrix<N3, N1>               multiTagStdDevs;
+    private final Matrix<N3, N1> multiTagStdDevs;
     /**
      * Transform of the camera rotation and translation relative to the center of the robot
      */
-    private final Transform3d                  robotToCamTransform;
+    private final Transform3d robotToCamTransform;
     /**
      * Current standard deviations used.
      */
-    public        Matrix<N3, N1>               curStdDevs;
+    public Matrix<N3, N1> curStdDevs;
     /**
      * Estimated robot pose.
      */
@@ -337,15 +335,15 @@ public class Vision
     /**
      * Simulated camera instance which only exists during simulations.
      */
-    public        PhotonCameraSim              cameraSim;
+    public PhotonCameraSim cameraSim;
     /**
      * Results list to be updated periodically and cached to avoid unnecessary queries.
      */
-    public        List<PhotonPipelineResult>   resultsList       = new ArrayList<>();
+    public List<PhotonPipelineResult> resultsList = new ArrayList<>();
     /**
      * Last read from the camera timestamp to prevent lag due to slow data fetches.
      */
-    private       double                       lastReadTimestamp = Microseconds.of(NetworkTablesJNI.now()).in(Seconds);
+    private double lastReadTimestamp = Microseconds.of(NetworkTablesJNI.now()).in(Seconds);
 
     /**
      * Construct a Photon Camera class with help. Standard deviations are fake values, experiment and determine
